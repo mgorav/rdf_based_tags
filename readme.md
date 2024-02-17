@@ -1,7 +1,7 @@
 # A Story of Data Discovery and Management with RDF and SPARQL
 
 Welcome to an in-depth journey into the world of RDF (Resource Description Framework) and SPARQL, the query language designed for navigating the complex web of data. This guide explores the implementation of RDF and SPARQL within the realm of data discovery and management, specifically focusing on their application in inventory management systems.
-
+![rdf.png](rdf.png)
 ## Introduction to RDF and SPARQL
 
 RDF is a standard model for data interchange on the web, enabling the structured representation of information. It lays the foundation for a universally understandable web of data, where each piece of data is meticulously cataloged, much like books in a vast library. SPARQL, on the other hand, acts as the navigator within this library, offering powerful query capabilities to retrieve and analyze data efficiently.
