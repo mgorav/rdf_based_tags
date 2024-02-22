@@ -1,17 +1,11 @@
-import os
-from io import BytesIO
-from sklearn.decomposition import PCA
-
+import matplotlib.pyplot as plt
+import networkx as nx
+import pandas as pd
 import seaborn as sns
 import streamlit as st
-import pandas as pd
-import matplotlib.pyplot as plt
-from transformers import AutoTokenizer, AutoModel, pipeline
 import torch
 from annoy import AnnoyIndex
-import networkx as nx
-from PIL import Image
-from sklearn.decomposition import PCA
+from transformers import AutoTokenizer, AutoModel, pipeline
 
 sns.set_theme(style='darkgrid')
 
