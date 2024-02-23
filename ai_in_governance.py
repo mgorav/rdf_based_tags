@@ -275,7 +275,6 @@ model_options = {
 
 selected_model = st.sidebar.selectbox("Select Pretrained Model", list(model_options.keys()), index=0)
 
-
 # Load tokenizer and model
 @st.cache_data
 def load_model_and_tokenizer(model_name):
@@ -286,12 +285,44 @@ def load_model_and_tokenizer(model_name):
 
 tokenizer, model = load_model_and_tokenizer(selected_model)
 
+# Define personas
+personas = {
+    "Data Steward": ["What compliance standards are followed for supply chain data exchanges?",
+                     "Detail the audit processes for data governance compliance.",
+                     "Explain the role and responsibilities of the data governance committee."],
+    "Data Guardian": ["Outline the data privacy policies for customer information.",
+                      "What are the security protocols for product data?",
+                      "How is sensitive data identified and protected in customer profiles.",
+                      "What are the procedures for data breach response and notification?"],
+    "Engineer": ["What is the customer schema?",
+                 "Can you describe the product schema?",
+                 "Show the sales lineage.",
+                 "What is the inventory readiness?",
+                 "What are the customer usage patterns?",
+                 "Explain the POS data exchange standards.",
+                 "How is shipment tracking managed in the logistics domain?",
+                 "What are GS1 Standards?",
+                 "Can you describe EDI standards?",
+                 "What is VICS?",
+                 "Explain NRTS.",
+                 "How are ASN and RA managed?",
+                 "Describe POS data exchange standards.",
+                 "How is data quality in inventory management ensured?",
+                 "Explain the consent management process for customer data usage.",
+                 "Describe the governance framework for sales data lineage.",
+                 "Describe the process for third-party data sharing and agreements.",
+                 "How is anonymization applied to sales and customer data for analysis?"]
+}
+
+selected_persona = st.sidebar.selectbox("Select Persona", list(personas.keys()), index=0)
+
+# Load the selected persona's questions
+questions = personas[selected_persona]
 
 def display_data_catalog():
     # Function to display the data catalog image and explanation
     st.image(data_catalog_image_path, caption='Data Catalog Structure')
     st.markdown(catalog_structure_text, unsafe_allow_html=True)
-
 
 @st.cache_data
 def create_embeddings(catalog):
@@ -312,8 +343,6 @@ def create_embeddings(catalog):
     reduced_embeddings = torch.nn.functional.normalize(reduced_embeddings)
     return reduced_embeddings.detach().cpu().numpy()
 
-
-
 @st.cache_data(hash_funcs={tokenizer.__class__: lambda _: None})
 def retrieve_data_for_query(query):
     for item in catalog:
@@ -333,7 +362,6 @@ def retrieve_data_for_query(query):
                     df.drop(columns=['Table and Columns'], inplace=True)
                 return df, additional_df
     return pd.DataFrame(), None
-
 
 def generate_dynamic_chart(df, query):
     if "usage pattern" in query.lower():
@@ -380,7 +408,6 @@ def generate_dynamic_chart(df, query):
             plt.axis('off')
             st.pyplot(plt)
 
-
 def display_data_ownership():
     # New function to display data product ownership information
     ownership_data = [{"Data Product": item["data_product"], "Ownership": item["ownership"]} for item in catalog]
@@ -389,7 +416,6 @@ def display_data_ownership():
     plt.xticks(rotation=45)
     plt.title("Ownership of Data Products")
     st.pyplot(plt)
-
 
 def main():
     # Assuming the initialization of embeddings and Annoy index is done elsewhere or included here as commented
@@ -442,28 +468,18 @@ def main():
                 summary_text += df.to_string()  # Convert DataFrame to string for summarization
                 if additional_df is not None:
                     st.write(additional_df)
-                    summary_text += "\n" + additional_df.to_string()
-                generate_dynamic_chart(df, selected_option)
+                    summary_text += "\n" + additional_df.to_string()  # Append additional DataFrame to string
+                generate_dynamic_chart(df, matched_query)
             else:
-                st.write("No data available for this query.")
-                summary_text = "No data available for this query."
+                st.write("No data found for the selected query.")
 
-            # Summarize the displayed information if any
+            # Perform summarization if data and additional data are available
             if summary_text:
-                summarized_info = summarize_text(summary_text)
-                st.subheader("Summary of Understanding")
-                st.write(summarized_info)
+                st.subheader("Summary:")
+                summary_result = summarize_text(summary_text)
+                st.write(summary_result)
         else:
             st.write("No matching query found in the catalog.")
 
-
 if __name__ == "__main__":
-    # Ensure the embeddings and Annoy index are created only when running the script
-    embeddings = create_embeddings(catalog)
-    annoy_index = AnnoyIndex(embeddings.shape[1], 'angular')
-
-    for i, embedding in enumerate(embeddings):
-        annoy_index.add_item(i, embedding)
-
-    annoy_index.build(10)
     main()
