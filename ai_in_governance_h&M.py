@@ -11,7 +11,7 @@ from transformers import AutoTokenizer, AutoModel, pipeline
 from langchain_community.llms import OpenAI
 from data_catalog import catalog, personas, model_options, catalog_structure_text
 
-openai_api_key = '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'
+openai_api_key = ''
 llm = OpenAI(api_key=openai_api_key)
 
 sns.set_theme(style='darkgrid')
