@@ -1,0 +1,155 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        
+            <script src="lib/bindings/utils.js"></script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+            
+        
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
+          crossorigin="anonymous"
+        />
+        <script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
+          crossorigin="anonymous"
+        ></script>
+
+
+        <center>
+          <h1></h1>
+        </center>
+        <style type="text/css">
+
+             #mynetwork {
+                 width: 100%;
+                 height: 600px;
+                 background-color: #ffffff;
+                 border: 1px solid lightgray;
+                 position: relative;
+                 float: left;
+             }
+
+             
+
+             
+
+             
+        </style>
+    </head>
+
+
+    <body>
+        <div class="card" style="width: 100%">
+            
+            
+            <div id="mynetwork" class="card-body"></div>
+        </div>
+
+        
+        
+
+        <script type="text/javascript">
+
+              // initialize global variables.
+              var edges;
+              var nodes;
+              var allNodes;
+              var allEdges;
+              var nodeColors;
+              var originalNodes;
+              var network;
+              var container;
+              var options, data;
+              var filter = {
+                  item : '',
+                  property : '',
+                  value : []
+              };
+
+              
+
+              
+
+              // This method is responsible for drawing the graph, returns the drawn network
+              function drawGraph() {
+                  var container = document.getElementById('mynetwork');
+
+                  
+
+                  // parsing and collecting nodes and edges from the python
+                  nodes = new vis.DataSet([{"color": "#97c2fc", "id": "community", "label": "community", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "community_ProductCatalog", "label": "ProductCatalog", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "domain", "label": "domain", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "domain_ProductCatalog", "label": "ProductCatalog", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "asset", "label": "asset", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "asset_0", "label": "asset_0", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "asset_1", "label": "asset_1", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "table", "label": "table", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "columns", "label": "columns", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "owner", "label": "owner", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "table_ProductInfo", "label": "ProductInfo", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "table_StockLevels", "label": "StockLevels", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "columns_0", "label": "columns_0", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "columns_1", "label": "columns_1", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "columns_2", "label": "columns_2", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "name", "label": "name", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "data_type", "label": "data_type", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "name_ProductID", "label": "ProductID", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "name_Name", "label": "Name", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "name_Category", "label": "Category", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "name_StockAvailable", "label": "StockAvailable", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "tags_0", "label": "tags_0", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "name_Core", "label": "Core", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "tags_1", "label": "tags_1", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "name_Metric", "label": "Metric", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "data_type_string", "label": "string", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "data_type_integer", "label": "integer", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "owner_-", "label": "-", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "tags", "label": "tags", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "type", "label": "type", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "type_Attribute", "label": "Attribute", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "type_Metric", "label": "Metric", "shape": "dot", "size": 10}]);
+                  edges = new vis.DataSet([{"from": "community", "to": "community_ProductCatalog", "width": 1}, {"from": "domain", "to": "domain_ProductCatalog", "width": 1}, {"from": "asset", "to": "asset_0", "width": 1}, {"from": "asset", "to": "asset_1", "width": 1}, {"from": "asset_0", "to": "table", "width": 1}, {"from": "asset_0", "to": "columns", "width": 1}, {"from": "asset_0", "to": "owner", "width": 1}, {"from": "table", "to": "table_ProductInfo", "width": 1}, {"from": "table", "to": "asset_1", "width": 1}, {"from": "table", "to": "table_StockLevels", "width": 1}, {"from": "columns", "to": "columns_0", "width": 1}, {"from": "columns", "to": "columns_1", "width": 1}, {"from": "columns", "to": "columns_2", "width": 1}, {"from": "columns", "to": "asset_1", "width": 1}, {"from": "columns_0", "to": "name", "width": 1}, {"from": "columns_0", "to": "data_type", "width": 1}, {"from": "name", "to": "name_ProductID", "width": 1}, {"from": "name", "to": "columns_1", "width": 1}, {"from": "name", "to": "name_Name", "width": 1}, {"from": "name", "to": "columns_2", "width": 1}, {"from": "name", "to": "name_Category", "width": 1}, {"from": "name", "to": "name_StockAvailable", "width": 1}, {"from": "name", "to": "tags_0", "width": 1}, {"from": "name", "to": "name_Core", "width": 1}, {"from": "name", "to": "tags_1", "width": 1}, {"from": "name", "to": "name_Metric", "width": 1}, {"from": "data_type", "to": "data_type_string", "width": 1}, {"from": "data_type", "to": "columns_1", "width": 1}, {"from": "data_type", "to": "columns_2", "width": 1}, {"from": "data_type", "to": "data_type_integer", "width": 1}, {"from": "owner", "to": "owner_-", "width": 1}, {"from": "owner", "to": "asset_1", "width": 1}, {"from": "tags", "to": "tags_0", "width": 1}, {"from": "tags", "to": "tags_1", "width": 1}, {"from": "tags_0", "to": "type", "width": 1}, {"from": "type", "to": "type_Attribute", "width": 1}, {"from": "type", "to": "tags_1", "width": 1}, {"from": "type", "to": "type_Metric", "width": 1}]);
+
+                  nodeColors = {};
+                  allNodes = nodes.get({ returnType: "Object" });
+                  for (nodeId in allNodes) {
+                    nodeColors[nodeId] = allNodes[nodeId].color;
+                  }
+                  allEdges = edges.get({ returnType: "Object" });
+                  // adding nodes and edges to the graph
+                  data = {nodes: nodes, edges: edges};
+
+                  var options = {
+    "configure": {
+        "enabled": false
+    },
+    "edges": {
+        "color": {
+            "inherit": true
+        },
+        "smooth": {
+            "enabled": true,
+            "type": "dynamic"
+        }
+    },
+    "interaction": {
+        "dragNodes": true,
+        "hideEdgesOnDrag": false,
+        "hideNodesOnDrag": false
+    },
+    "physics": {
+        "enabled": true,
+        "stabilization": {
+            "enabled": true,
+            "fit": true,
+            "iterations": 1000,
+            "onlyDynamicEdges": false,
+            "updateInterval": 50
+        }
+    }
+};
+
+                  
+
+
+                  
+
+                  network = new vis.Network(container, data, options);
+
+                  
+
+                  
+
+                  
+
+
+                  
+
+                  return network;
+
+              }
+              drawGraph();
+        </script>
+    </body>
+</html>

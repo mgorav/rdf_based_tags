@@ -1,3 +1,4 @@
+import json
 import matplotlib.pyplot as plt
 import networkx as nx
 import pandas as pd
@@ -5,275 +6,28 @@ import seaborn as sns
 import streamlit as st
 import torch
 from annoy import AnnoyIndex
+from langchain_core.outputs import LLMResult
 from transformers import AutoTokenizer, AutoModel, pipeline
+from langchain_community.llms import OpenAI
+from data_catalog import catalog, personas, model_options, catalog_structure_text
+
+openai_api_key = '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'
+llm = OpenAI(api_key=openai_api_key)
 
 sns.set_theme(style='darkgrid')
 
 # Title
 st.title("Nike Data Catalog & Analytics")
 
-import streamlit as st
-
-# Add custom CSS to change the Streamlit theme to light
-st.markdown(
-    """
-    <style>
-    body {
-        color: black;
-        background-color: white;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
 # Add Nike logo with modified color pattern
 st.image("https://upload.wikimedia.org/wikipedia/commons/a/a6/Logo_NIKE.svg", width=200, output_format="PNG",
          caption="Nike")
 
-# Load data
-catalog = [
-    {
-        "query": "What are GS1 Standards?",
-        "data_product": "GS1Standards",
-        "domain": "Supply Chain",
-        "ownership": "Supply Chain Management Team",
-        "sourceOfTruth": "GS1",
-        "description": "GS1 Standards provide a common language for identifying, capturing, and sharing supply chain data, ensuring global consistency across products, locations, and logistic units.",
-        "data": {
-            'Standards': ['GTIN', 'SSCC', 'GLN', 'GS1 XML'],
-            'Description': [
-                'Global Trade Item Number: Unique identification of trade items.',
-                'Serial Shipping Container Code: Identifying logistics units.',
-                'Global Location Number: Identifying locations.',
-                'GS1 XML: XML-based standards for business messaging.'
-            ]
-        }
-    },
-    {
-        "query": "Can you describe EDI standards?",
-        "data_product": "EDIStandards",
-        "domain": "Supply Chain",
-        "ownership": "IT Department",
-        "sourceOfTruth": "ANSI X12 and EDIFACT Documentation",
-        "description": "EDI standards facilitate electronic business document exchange, including purchase orders and invoices, enhancing efficiency and reducing errors in supply chain communications.",
-        "data": {
-            'Standards': ['ANSI X12', 'EDIFACT'],
-            'Description': [
-                'ANSI X12: EDI standard used in North America.',
-                'EDIFACT: International EDI standard for cross-border transactions.'
-            ]
-        }
-    },
-    {
-        "query": "What is VICS?",
-        "data_product": "VICSStandards",
-        "domain": "Supply Chain",
-        "ownership": "Supply Chain Standards Committee",
-        "sourceOfTruth": "VICS Documentation",
-        "description": "VICS provides guidelines for EDI implementation and catalog item synchronization, improving data accuracy and synchronization across the retail supply chain.",
-        "data": {
-            'Standards': ['VICS EDI guidelines', 'VICS Catalogue Item Synchronization'],
-            'Description': [
-                'EDI guidelines for retail supply chain data synchronization.',
-                'Standards for product data synchronization between retailers and suppliers.'
-            ]
-        }
-    },
-    {
-        "query": "Explain NRTS.",
-        "data_product": "NRTSStandards",
-        "domain": "Supply Chain",
-        "ownership": "National Retail Federation",
-        "sourceOfTruth": "NRTS Documentation",
-        "description": "NRTS offers XML-based standards for exchanging product data and inventory levels, facilitating efficient communication between retailers and their partners.",
-        "data": {
-            'Standards': ['Nationwide Retail Transfer Standard'],
-            'Description': [
-                'XML-based standards for product data and inventory level exchange.'
-            ]
-        }
-    },
-    {
-        "query": "How are ASN and RA managed?",
-        "data_product": "ASNandRA",
-        "domain": "Logistics",
-        "ownership": "Logistics Department",
-        "sourceOfTruth": "Supply Chain Operations Reference",
-        "description": "Advance Ship Notices and Receiving Advice documents streamline receiving and inventory management by providing detailed information on shipments and received goods.",
-        "data": {
-            'Documents': ['Advance Ship Notice (ASN)', 'Receiving Advice (RA)'],
-            'Description': [
-                'ASN: Provides detailed info about an upcoming shipment.',
-                'RA: Acknowledges the receipt of goods and reconciles discrepancies.'
-            ]
-        }
-    },
-    {
-        "query": "Describe POS data exchange standards.",
-        "data_product": "POSDataExchange",
-        "domain": "Retail",
-        "ownership": "Retail Operations Team",
-        "sourceOfTruth": "Retail Management Systems",
-        "description": "Standards for sharing point-of-sale data to enable real-time sales tracking and inventory management, fostering collaborative planning and replenishment.",
-        "data": {
-            'Standards': ['EDI', 'GS1 XML'],
-            'Benefits': [
-                'Enables real-time sales tracking.',
-                'Facilitates inventory management.'
-            ]
-        }
-    },
-    {
-        "query": "What is the customer schema?",
-        "data_product": "Customer360",
-        "domain": "Customer",
-        "ownership": "Customer Relations Team",
-        "sourceOfTruth": "CRM System",
-        "description": "Detailed customer profiles including purchase history and engagement metrics, vital for personalized marketing and customer support.",
-        "data": {
-            'Table': ['CustomerInfo', 'EngagementScores'],
-            'Columns': [['CustomerID', 'Name', 'Email'], ['CustomerID', 'Score']],
-            'Privacy': [['PII', 'PII', 'PII'], ['-', 'Confidential']],
-            'Tags': [['Core', 'Core', 'Core'], ['Metric', 'Metric']]
-        }
-    },
-    {
-        "query": "Can you describe the product schema?",
-        "data_product": "ProductCatalog",
-        "domain": "Inventory",
-        "ownership": "Product Management Team",
-        "sourceOfTruth": "Product Database",
-        "description": "Comprehensive product listings, including stock levels and categories, enabling inventory management and sales strategy planning.",
-        "data": {
-            'Table': ['ProductInfo', 'StockLevels'],
-            'Columns': [['ProductID', 'Name', 'Category'], ['ProductID', 'StockAvailable']],
-            'Privacy': [['-', '-', '-'], ['-', '-']],
-            'Tags': [['Core', 'Core', 'Attribute'], ['Metric', 'Metric']]
-        }
-    },
-    {
-        "query": "Show the sales lineage.",
-        "data_product": "SalesData",
-        "domain": "Sales",
-        "ownership": "Sales Analysis Team",
-        "sourceOfTruth": "Sales Database",
-        "description": "Tracks the journey of sales data from order capture to final analysis, critical for understanding sales trends and customer preferences.",
-        "data": {
-            'source': ['OrderInfo', 'CustomerInfo'],
-            'target': ['SalesAnalysis', 'CustomerSegmentation'],
-            'Columns': ['OrderID, ProductID, CustomerID', 'CustomerID, Segment'],
-            'Table and Columns': [
-                'OrderInfo -> SalesAnalysis: OrderID, ProductID, CustomerID',
-                'CustomerInfo -> CustomerSegmentation: CustomerID, Segment'
-            ]
-        }
-    },
-    {
-        "query": "What is the inventory readiness?",
-        "data_product": "InventoryManagement",
-        "domain": "Inventory",
-        "ownership": "Inventory Control Team",
-        "sourceOfTruth": "Warehouse Management System",
-        "description": "Assesses inventory accuracy and availability, ensuring stock levels meet demand without overstocking, essential for efficient supply chain management.",
-        "data": {
-            'Metric': ['Completeness', 'Accuracy', 'Consistency', 'Timeliness'],
-            'Score': [98, 99, 97, 95]
-        }
-    },
-    {
-        "query": "What are the customer usage patterns?",
-        "data_product": "Customer360",
-        "domain": "Customer",
-        "ownership": "Customer Insights Team",
-        "sourceOfTruth": "Usage Tracking System",
-        "description": "Analyzes customer interaction and purchasing patterns over time to refine product offerings and marketing strategies.",
-        "data": {
-            'Month': ['January', 'February', 'March', 'April'],
-            'Usage': [220, 230, 210, 250]
-        }
-    },
-    {
-        "query": "Explain the POS data exchange standards.",
-        "data_product": "POSDataExchange",
-        "domain": "Sales",
-        "ownership": "Sales Analysis Team",
-        "sourceOfTruth": "Retail POS Systems",
-        "description": "Facilitates the seamless exchange of sales data between retail points of sale and corporate systems, enhancing real-time sales tracking and inventory management.",
-        "data": {
-            'Standards': ['EDI', 'GS1 XML'],
-            'Documents': ['Invoices', 'Purchase Orders'],
-            'Frequency': ['Daily', 'Weekly'],
-            'Partners': ['Retailers', 'Suppliers']
-        }
-    },
-    {
-        "query": "How is shipment tracking managed in the logistics domain?",
-        "data_product": "ShipmentTracking",
-        "domain": "Logistics",
-        "ownership": "Logistics Team",
-        "sourceOfTruth": "Logistics Systems",
-        "description": "Monitors the real-time status of shipments across the supply chain, ensuring timely delivery and minimizing disruptions.",
-        "data": {
-            'Standards': ['GS1 Standards', 'EDI'],
-            'Documents': ['Advance Ship Notices (ASN)', 'Receiving Advice (RA)'],
-            'Frequency': ['Real-time', 'Periodic'],
-            'Partners': ['Carriers', 'Warehouses']
-        },
-
-    }
-]
-
-# Define questions with more detailed prompts
-questions = [
-    "What is the customer schema?",
-    "Can you describe the product schema?",
-    "Show the sales lineage.",
-    "What is the inventory readiness?",
-    "What are the customer usage patterns?",
-    "Explain the POS data exchange standards.",
-    "How is shipment tracking managed in the logistics domain?",
-    "What are GS1 Standards?",
-    "Can you describe EDI standards?",
-    "What is VICS?",
-    "Explain NRTS.",
-    "How are ASN and RA managed?",
-    "Describe POS data exchange standards.",
-    "Outline the data privacy policies for customer information.",
-    "What are the security protocols for product data?",
-    "Describe the governance framework for sales data lineage.",
-    "How is data quality in inventory management ensured?",
-    "Explain the consent management process for customer data usage.",
-    "What compliance standards are followed for supply chain data exchanges?",
-    "Describe the process for third-party data sharing and agreements.",
-    "How is sensitive data identified and protected in customer profiles?",
-    "Detail the audit processes for data governance compliance.",
-    "Explain the role and responsibilities of the data governance committee.",
-    "What are the procedures for data breach response and notification?",
-    "How is anonymization applied to sales and customer data for analysis?"
-]
-
 # Define the path to your data catalog image
 data_catalog_image_path = "data_catalog.png"
 
-# Define catalog structure text
-catalog_structure_text = """
-The data catalog consists of various domains, each with specific data products owned by designated teams and linked to their respective sources of truth. 
-- The **Customer Domain** includes 'Customer360' and 'CustomerUsagePattern', owned by the Customer Relations Team and Customer Insights Team, respectively, with CRM and Usage Tracking Systems as sources of truth.
-- The **Inventory Domain** covers 'ProductCatalog' and 'InventoryManagement', managed by the Product Management Team and Inventory Control Team, with the Product Database and Warehouse Management System as sources of truth.
-- Under the **Sales Domain**, 'SalesData' and 'POSDataExchange' are analyzed by the Sales Analysis Team and rely on the Sales Database and Retail POS Systems.
-- The **Logistics Domain** offers 'ShipmentTracking', owned by the Logistics Team with the Logistics Systems as the source of truth.
-"""
-
-# Pretrained model selection
-model_options = {
-    "MiniLM-L6-v2": "sentence-transformers/all-MiniLM-L6-v2",
-    "DistilBERT": "distilbert-base-uncased",
-    "BERT": "bert-base-uncased",
-    "RoBERTa": "roberta-base"
-}
-
 selected_model = st.sidebar.selectbox("Select Pretrained Model", list(model_options.keys()), index=0)
+
 
 # Load tokenizer and model
 @st.cache_data
@@ -285,44 +39,17 @@ def load_model_and_tokenizer(model_name):
 
 tokenizer, model = load_model_and_tokenizer(selected_model)
 
-# Define personas
-personas = {
-    "Data Steward": ["What compliance standards are followed for supply chain data exchanges?",
-                     "Detail the audit processes for data governance compliance.",
-                     "Explain the role and responsibilities of the data governance committee."],
-    "Data Guardian": ["Outline the data privacy policies for customer information.",
-                      "What are the security protocols for product data?",
-                      "How is sensitive data identified and protected in customer profiles.",
-                      "What are the procedures for data breach response and notification?"],
-    "Engineer": ["What is the customer schema?",
-                 "Can you describe the product schema?",
-                 "Show the sales lineage.",
-                 "What is the inventory readiness?",
-                 "What are the customer usage patterns?",
-                 "Explain the POS data exchange standards.",
-                 "How is shipment tracking managed in the logistics domain?",
-                 "What are GS1 Standards?",
-                 "Can you describe EDI standards?",
-                 "What is VICS?",
-                 "Explain NRTS.",
-                 "How are ASN and RA managed?",
-                 "Describe POS data exchange standards.",
-                 "How is data quality in inventory management ensured?",
-                 "Explain the consent management process for customer data usage.",
-                 "Describe the governance framework for sales data lineage.",
-                 "Describe the process for third-party data sharing and agreements.",
-                 "How is anonymization applied to sales and customer data for analysis?"]
-}
-
 selected_persona = st.sidebar.selectbox("Select Persona", list(personas.keys()), index=0)
 
 # Load the selected persona's questions
 questions = personas[selected_persona]
 
+
 def display_data_catalog():
     # Function to display the data catalog image and explanation
     st.image(data_catalog_image_path, caption='Data Catalog Structure')
     st.markdown(catalog_structure_text, unsafe_allow_html=True)
+
 
 @st.cache_data
 def create_embeddings(catalog):
@@ -343,6 +70,7 @@ def create_embeddings(catalog):
     reduced_embeddings = torch.nn.functional.normalize(reduced_embeddings)
     return reduced_embeddings.detach().cpu().numpy()
 
+
 @st.cache_data(hash_funcs={tokenizer.__class__: lambda _: None})
 def retrieve_data_for_query(query):
     for item in catalog:
@@ -362,6 +90,7 @@ def retrieve_data_for_query(query):
                     df.drop(columns=['Table and Columns'], inplace=True)
                 return df, additional_df
     return pd.DataFrame(), None
+
 
 def generate_dynamic_chart(df, query):
     if "usage pattern" in query.lower():
@@ -408,6 +137,7 @@ def generate_dynamic_chart(df, query):
             plt.axis('off')
             st.pyplot(plt)
 
+
 def display_data_ownership():
     # New function to display data product ownership information
     ownership_data = [{"Data Product": item["data_product"], "Ownership": item["ownership"]} for item in catalog]
@@ -416,6 +146,7 @@ def display_data_ownership():
     plt.xticks(rotation=45)
     plt.title("Ownership of Data Products")
     st.pyplot(plt)
+
 
 def main():
     # Assuming the initialization of embeddings and Annoy index is done elsewhere or included here as commented
@@ -430,7 +161,8 @@ def main():
     selected_option = st.sidebar.selectbox("Options", options)
 
     # Initialize the summarization pipeline here to avoid reloading for each execution
-    summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
+    # summarizer = pipeline("summarization", model="facebook/bart")
+    summarizer = pipeline("summarization", model="t5-small")
 
     @st.cache_data
     def summarize_text(text):
@@ -446,6 +178,59 @@ def main():
         display_data_catalog()
     elif selected_option == "View Data Product Ownership":
         display_data_ownership()
+    # New Data Steward Workflow
+    elif selected_persona == "Data Steward":
+        st.sidebar.subheader('Data Steward Workflow')
+        selected_workflow = st.sidebar.selectbox("Select Workflow", ["", "Collibra"])
+
+        if selected_workflow == "Collibra":
+            st.empty()
+            st.subheader('Collibra Data Products')
+            # Display table of data products
+            products = [item["data_product"] for item in catalog]
+            selected_products = st.multiselect("Select Data Products", products)
+            if selected_products:
+                selected_catalog = [item for item in catalog if item["data_product"] in selected_products]
+
+                # Initialize a list to keep track of checkbox states
+                checkbox_states = []
+
+                # Create a dataframe for selected products
+                selected_catalog_df = pd.DataFrame(selected_catalog)
+
+                # Create a new column in the dataframe to store the checkbox widgets
+                selected_catalog_df['Select'] = False
+
+                # Iterate over the dataframe and display checkboxes with data
+                for index, row in selected_catalog_df.iterrows():
+                    cols = st.columns([1, 5, 10])
+
+                    # Display checkbox in the first column
+                    with cols[0]:
+                        selected_catalog_df.at[index, 'Select'] = st.checkbox('', value=row['Select'], key=str(index))
+
+                    # Display product name and description in the second column
+                    with cols[1]:
+                        st.write(f"**Product:** {row['data_product']}")
+                        st.write(f"**Description:** {row['description']}")
+
+                    # Display JSON data in the third column using a tree view
+                    with cols[2]:
+                        # st.json(row['data'])
+                        st.dataframe(row['data'])
+
+                # When the submit button is pressed
+                if st.button("Submit Data Product Registrations"):
+                    # Iterate through the dataframe and check the state of each checkbox
+                    for index, row in selected_catalog_df.iterrows():
+                        if row['Select']:  # If the checkbox is selected
+                            product_name = row['data_product']
+                            submit_to_collibra(product_name, row['data'], st)
+                            # st.write(f"Data product '{product}' is being submitted to Collibra.")
+
+                        else:
+                            st.write("Please select at least one data product.")
+
     else:
         st.subheader(f"Question: {selected_option}")
 
@@ -480,6 +265,170 @@ def main():
                 st.write(summary_result)
         else:
             st.write("No matching query found in the catalog.")
+
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+# def submit_to_collibra(product_name, json_payload, st):
+#     st.write(f"Attempting to submit '{product_name}' to Collibra.")
+#
+#     if not isinstance(json_payload, str):
+#         json_payload_str = json.dumps(json_payload, ensure_ascii=False)
+#     else:
+#         json_payload_str = json_payload
+#
+#     prompt = f"""
+#     Given the JSON payload for '{product_name}', convert it into a detailed JSON format suitable for Collibra registration, including necessary fields like community, domain, asset, table, columns, and owner:
+#     JSON Payload: {json_payload_str}
+#     """
+#
+#     try:
+#         response = llm.generate(prompts=[prompt], max_tokens=1024)
+#
+#         if hasattr(response, "generations") and response.generations:
+#
+#             generation = response.generations[0]
+#
+#             if hasattr(generation, "text"):
+#                 generated_text = generation.text.strip()
+#
+#             else:
+#                 print(type(generation))
+#                 generated_text = json.dumps(generation[0].text.strip())
+#
+#             try:
+#                 collibra_payload = json.loads(generated_text)
+#                 # st.json(collibra_payload)
+#                 # First, parse the JSON string into a Python object
+#                 data = json.loads(collibra_payload)
+#
+#                 # Then, create a DataFrame from this object
+#                 df = pd.DataFrame(data)
+#
+#                 # Display the DataFrame in Streamlit
+#                 st.dataframe(df)
+#
+#             except json.JSONDecodeError:
+#                 logger.error("Invalid JSON format")
+#                 st.error("Invalid JSON format")
+#
+#         else:
+#             logger.debug("No generations returned")
+#             st.error("No valid response")
+#
+#     except Exception as e:
+#         logger.exception("Submission error")
+#         st.error(f"An error occurred: {e}")
+
+import json
+import pandas as pd
+
+
+def create_and_display_tables(data, st, parent_key='', path=''):
+    """
+    Recursively create and display tables for nested dictionaries and lists with improved display.
+    """
+    if isinstance(data, dict):
+        # Flatten the dictionary to handle nested structures with improved descriptions
+        flat_data = {}
+        for k, v in data.items():
+            new_path = f"{path}.{k}" if path else k
+            if isinstance(v, dict):
+                flat_data[k] = "; ".join([f"{key}: {value}" for key, value in v.items() if not isinstance(value, (dict, list))])
+                create_and_display_tables(v, st, k, new_path)
+            elif isinstance(v, list):
+                # Attempt to summarize list content if it's not too complex
+                if all(not isinstance(i, (dict, list)) for i in v):
+                    flat_data[k] = ", ".join(map(str, v))
+                else:
+                    flat_data[k] = "See below for details"
+                    create_and_display_tables(v, st, k, new_path)
+            else:
+                flat_data[k] = v
+
+        if flat_data:
+            df = pd.DataFrame([flat_data])
+            st.write(f"### {parent_key}", df)
+
+    elif isinstance(data, list):
+        # Process lists containing dictionaries
+        if data and isinstance(data[0], dict):
+            # Simplify list items for display if they are not too complex
+            simplified_data = [
+                {k: v if not isinstance(v, (dict, list)) else "See details below" for k, v in item.items()}
+                for item in data
+            ]
+            df = pd.DataFrame(simplified_data)
+            st.write(f"### {parent_key}", df)
+            # Recursively handle complex items in the list
+            for i, item in enumerate(data):
+                for k, v in item.items():
+                    new_path = f"{path}[{i}].{k}"
+                    if isinstance(v, (dict, list)):
+                        create_and_display_tables(v, st, f"{k} in {parent_key}[{i}]", new_path)
+        else:
+            # Directly display simple lists
+            st.write(f"### {parent_key}", data)
+
+
+
+def submit_to_collibra(product_name, json_payload, st):
+    st.write(f"Attempting to submit '{product_name}' to Collibra.")
+
+    prompt = f"""
+    Create a JSON payload that aligns with Collibra's Swagger specifications for data product registration, 
+    including all necessary fields like community, domain, asset, table, columns, and owner. The JSON 
+    should be structured to facilitate the onboarding of the '{product_name}' data product into Collibra, 
+    ensuring compliance with the following aspects based on Collibra's REST API requirements:
+    
+    - Community and domain creation with relevant identifiers
+    - Data product asset creation including name, description, and linkage to the created community
+    - Definition of tables as entities within the data product, including columns as attributes
+    - Assignment of roles and responsibilities to stewards for each domain, community, and data product
+    
+    JSON Payload for reference: {json.dumps(json_payload, ensure_ascii=False)}
+    
+    Please provide the JSON in a format that can be directly used for API calls to register a data product in Collibra.
+    """
+
+    try:
+        response = llm.generate(
+            prompts=[prompt],
+            model="gpt-3.5-turbo-instruct",
+            max_tokens=1024,
+            temperature=0.7,
+        )
+
+        # Assuming the correct way to access the generated text is through the 'text' attribute of the first 'Generation' object
+        if response.generations and response.generations[0]:
+            # Directly accessing the 'text' attribute of the first generation
+            generation = response.generations[0][0]  # Assuming the first item in the list is what we need
+            generated_text = generation.text.strip()  # Accessing 'text' attribute and stripping leading/trailing whitespace
+        else:
+            raise AttributeError("Generated text not found in the response")
+
+        collibra_payload = _parse_llm_response(generated_text)
+
+        # Display the parsed Collibra JSON in Streamlit
+        create_and_display_tables(collibra_payload, st)
+
+    except json.JSONDecodeError:
+        logger.error("Invalid JSON format from LLM")
+        st.error("Invalid JSON format from LLM")
+    except Exception as e:
+        logger.exception("Submission error")
+        st.error(f"An error occurred: {e}")
+
+
+def _parse_llm_response(generated_text):
+    try:
+        # Directly parsing the generated_text as it's already a string
+        return json.loads(generated_text)
+    except json.JSONDecodeError:
+        raise ValueError("Invalid JSON format in parsed response from GPT")
+
 
 if __name__ == "__main__":
     main()
